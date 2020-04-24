@@ -33,6 +33,7 @@ package com.raywenderlich.mcwenderlich
 
 import android.os.Bundle
 import android.os.Handler
+import android.os.Message
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
@@ -44,7 +45,8 @@ class MainActivity : AppCompatActivity() {
 
   private lateinit var foodListAdapter: FoodListAdapter
   private lateinit var uiHandler: UiHandler
-
+  private lateinit var foodRunnable: FoodRunnable
+  private lateinit var orderHandlerThread: OrderHandlerThread
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
@@ -59,6 +61,7 @@ class MainActivity : AppCompatActivity() {
   class UiHandler : Handler() {
 
     private lateinit var weakRefFoodListAdapter: WeakReference<FoodListAdapter>
+
     private lateinit var weakRefOrderRecyclerView: WeakReference<RecyclerView>
 
     fun setAdapter(foodListAdapter: FoodListAdapter) {
@@ -68,5 +71,34 @@ class MainActivity : AppCompatActivity() {
     fun setRecyclerView(foodRecyclerView: RecyclerView) {
       weakRefOrderRecyclerView = WeakReference(foodRecyclerView)
     }
+
+    private fun addAndNotifyForOrder(foodOrder: FoodOrder, position: Int) {
+      weakRefFoodListAdapter.get()?.getOrderList()?.add(foodOrder)
+      weakRefOrderRecyclerView.get()?.adapter?.notifyItemInserted(position)
+    }
+
+    override fun handleMessage(msg: Message?) {
+      super.handleMessage(msg)
+      //1
+      val position = weakRefFoodListAdapter.get()?.getOrderList()?.size
+      //2
+      addAndNotifyForOrder(msg?.obj as FoodOrder, position!!)
+      //3
+      weakRefOrderRecyclerView.get()?.smoothScrollToPosition(weakRefFoodListAdapter
+              .get()?.itemCount!!)
+    }
+  }
+
+  override fun onStart() {
+    super.onStart()
+    //1
+    orderHandlerThread = OrderHandlerThread(uiHandler)
+    //2
+    orderHandlerThread.start()
+    //3
+    foodRunnable = FoodRunnable(orderHandlerThread)
+    //4
+    foodRunnable.setMaxOrders(10)
+    foodRunnable.start()
   }
 }
